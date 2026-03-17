@@ -556,7 +556,7 @@ var _ = ginkgo.Describe("linkedIdentifierMarkedForRestart", func() {
 			&dockerContainer.Config{},
 		)
 		allContainers := []types.Container{dependent, restarting1, restarting2}
-		result := linkedIdentifierMarkedForRestart(links, restartByIdent, dependent, allContainers)
+		result := linkedIdentifierMarkedForRestart(links, restartByIdent, dependent, allContainers, nil)
 		gomega.Expect(result).To(gomega.Equal("project1-db"))
 	})
 
@@ -584,7 +584,7 @@ var _ = ginkgo.Describe("linkedIdentifierMarkedForRestart", func() {
 			&dockerContainer.Config{},
 		)
 		allContainers := []types.Container{dependent, restarting1}
-		result := linkedIdentifierMarkedForRestart(links, restartByIdent, dependent, allContainers)
+		result := linkedIdentifierMarkedForRestart(links, restartByIdent, dependent, allContainers, nil)
 		gomega.Expect(result).To(gomega.Equal("project1-db"))
 	})
 
@@ -622,7 +622,7 @@ var _ = ginkgo.Describe("linkedIdentifierMarkedForRestart", func() {
 			&dockerContainer.Config{},
 		)
 		allContainers := []types.Container{dependent, restarting1, exact}
-		result := linkedIdentifierMarkedForRestart(links, restartByIdent, dependent, allContainers)
+		result := linkedIdentifierMarkedForRestart(links, restartByIdent, dependent, allContainers, nil)
 		gomega.Expect(result).To(gomega.Equal("db"))
 	})
 })
@@ -674,7 +674,7 @@ var _ = ginkgo.Describe("linkedIdentifierMarkedForRestart same-project priority"
 			&dockerContainer.Config{},
 		)
 		allContainers := []types.Container{dependent, restarting1, restarting2, restarting3}
-		result := linkedIdentifierMarkedForRestart(links, restartByIdent, dependent, allContainers)
+		result := linkedIdentifierMarkedForRestart(links, restartByIdent, dependent, allContainers, nil)
 		gomega.Expect(result).To(gomega.Equal("myproject-db"))
 	})
 
@@ -739,7 +739,7 @@ var _ = ginkgo.Describe("linkedIdentifierMarkedForRestart same-project priority"
 			restartingBeta,
 			restartingGamma,
 		}
-		result := linkedIdentifierMarkedForRestart(links, restartByIdent, dependent, allContainers)
+		result := linkedIdentifierMarkedForRestart(links, restartByIdent, dependent, allContainers, nil)
 		gomega.Expect(result).To(gomega.Equal("myproject-db"))
 	})
 })
@@ -770,7 +770,7 @@ var _ = ginkgo.Describe("linkedIdentifierMarkedForRestart project-service format
 			&dockerContainer.Config{},
 		)
 		allContainers := []types.Container{dependent, restarting}
-		result := linkedIdentifierMarkedForRestart(links, restartByIdent, dependent, allContainers)
+		result := linkedIdentifierMarkedForRestart(links, restartByIdent, dependent, allContainers, nil)
 		gomega.Expect(result).To(gomega.Equal("myproject-db"))
 	})
 
@@ -799,7 +799,7 @@ var _ = ginkgo.Describe("linkedIdentifierMarkedForRestart project-service format
 			&dockerContainer.Config{},
 		)
 		allContainers := []types.Container{dependent, restarting}
-		result := linkedIdentifierMarkedForRestart(links, restartByIdent, dependent, allContainers)
+		result := linkedIdentifierMarkedForRestart(links, restartByIdent, dependent, allContainers, nil)
 		gomega.Expect(result).To(gomega.Equal("databaseproject-db"))
 	})
 
@@ -843,7 +843,7 @@ var _ = ginkgo.Describe("linkedIdentifierMarkedForRestart project-service format
 			restartingExact,
 			restartingProjectService,
 		}
-		result := linkedIdentifierMarkedForRestart(links, restartByIdent, dependent, allContainers)
+		result := linkedIdentifierMarkedForRestart(links, restartByIdent, dependent, allContainers, nil)
 		gomega.Expect(result).To(gomega.Equal("db"))
 	})
 
@@ -879,6 +879,7 @@ var _ = ginkgo.Describe("linkedIdentifierMarkedForRestart project-service format
 				restartByIdent,
 				dependent,
 				allContainers,
+				nil,
 			)
 			gomega.Expect(result).To(gomega.Equal("production-api-gateway"))
 		},
@@ -939,6 +940,7 @@ var _ = ginkgo.Describe("linkedIdentifierMarkedForRestart cross-project fallback
 				restartByIdent,
 				dependent,
 				allContainers,
+				nil,
 			)
 			gomega.Expect(result).To(gomega.Equal("project1-db"))
 		},
@@ -969,7 +971,7 @@ var _ = ginkgo.Describe("linkedIdentifierMarkedForRestart cross-project fallback
 			&dockerContainer.Config{},
 		)
 		allContainers := []types.Container{dependent, restarting}
-		result := linkedIdentifierMarkedForRestart(links, restartByIdent, dependent, allContainers)
+		result := linkedIdentifierMarkedForRestart(links, restartByIdent, dependent, allContainers, nil)
 		gomega.Expect(result).To(gomega.Equal("otherproject-db"))
 	})
 })

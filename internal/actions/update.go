@@ -460,6 +460,10 @@ func UpdateImplicitRestart(allContainers, containers []types.Container) {
 		restartByName[c.Name()] = c.ToRestart()
 	}
 
+	// Build a map of containers to their restart-disabled dependencies
+	// This maps container name -> set of dependency names that have restart: false
+	restartDisabledDeps := buildRestartDisabledDepsMap(containers)
+
 	markedContainers := []string{}
 	changed := true
 
@@ -486,6 +490,7 @@ func UpdateImplicitRestart(allContainers, containers []types.Container) {
 				restartByName,
 				c,
 				allContainers,
+				restartDisabledDeps[c.Name()],
 			); link != "" {
 				logrus.WithFields(logrus.Fields{
 					"container":  c.Name(),
@@ -505,6 +510,41 @@ func UpdateImplicitRestart(allContainers, containers []types.Container) {
 	}
 
 	logrus.WithField("marked_containers", markedContainers).Debug("Completed UpdateImplicitRestart")
+}
+
+// buildRestartDisabledDepsMap builds a map of container names to their restart-disabled dependencies.
+//
+// This function extracts the restart property from each container's depends_on configuration
+// to determine which dependencies should NOT trigger an implicit restart.
+//
+// Parameters:
+//   - containers: List of containers to analyze.
+//
+// Returns:
+//   - map[string]map[string]struct{}: Map of container name to set of dependency names that have restart disabled.
+func buildRestartDisabledDepsMap(containers []types.Container) map[string]map[string]struct{} {
+	result := make(map[string]map[string]struct{}, len(containers))
+
+	for _, c := range containers {
+		// Try to get the container as *container.Container to access GetDependsOn
+		if monitoredContainer, ok := c.(*container.Container); ok {
+			dependencies := monitoredContainer.GetDependsOn()
+			if len(dependencies) > 0 {
+				disabledDeps := make(map[string]struct{}, len(dependencies))
+				for _, dep := range dependencies {
+					if dep.RestartExplicitlyDisabled {
+						disabledDeps[dep.ServiceName] = struct{}{}
+					}
+				}
+
+				if len(disabledDeps) > 0 {
+					result[c.Name()] = disabledDeps
+				}
+			}
+		}
+	}
+
+	return result
 }
 
 // shouldUpdateContainer determines if a container should be updated based on its staleness and update parameters.
@@ -578,6 +618,7 @@ func shouldUpdateContainer(stale bool, container types.Container, config types.U
 //   - restartByIdentifier: Map of container identifiers to restart status.
 //   - dependentContainer: The container that has the dependency.
 //   - allContainers: List of all containers.
+//   - restartDisabledDeps: Map of dependency names that have restart disabled for this container.
 //
 // Returns:
 //   - string: Identifier of restarting linked container, or empty if none.
@@ -586,6 +627,7 @@ func linkedIdentifierMarkedForRestart(
 	restartByIdentifier map[string]bool,
 	dependentContainer types.Container,
 	allContainers []types.Container,
+	restartDisabledDeps map[string]struct{},
 ) string {
 	nameToContainer := make(map[string]types.Container, len(allContainers))
 	for _, c := range allContainers {
@@ -603,12 +645,31 @@ func linkedIdentifierMarkedForRestart(
 	for _, link := range links {
 		logrus.WithField("checking_link", link).Debug("Checking link for restarting match")
 
+		// Helper to check if restart is disabled for this specific link
+		isRestartDisabled := func(matchIdentifier string) bool {
+			if restartDisabledDeps == nil {
+				return false
+			}
+			// Check if the matched identifier (or the original link) has restart disabled
+			_, disabledForLink := restartDisabledDeps[link]
+			_, disabledForMatch := restartDisabledDeps[matchIdentifier]
+
+			return disabledForLink || disabledForMatch
+		}
+
 		// Exact match
 		if restartByIdentifier[link] {
-			logrus.WithField("found_restarting_identifier", link).
-				Debug("Found restarting linked container via exact match")
+			if isRestartDisabled(link) {
+				logrus.WithFields(logrus.Fields{
+					"link":   link,
+					"reason": "restart disabled for this dependency",
+				}).Debug("Skipping restart for dependency with restart: false")
+			} else {
+				logrus.WithField("found_restarting_identifier", link).
+					Debug("Found restarting linked container via exact match")
 
-			return link
+				return link
+			}
 		}
 
 		if strings.Contains(link, "-") && strings.Count(link, "-") == 1 {
@@ -630,6 +691,16 @@ func linkedIdentifierMarkedForRestart(
 			for identifier, restarting := range restartByIdentifier {
 				if restarting && getProject(nameToContainer[identifier]) == linkProject &&
 					strings.Contains(identifier, serviceName) {
+					if isRestartDisabled(identifier) {
+						logrus.WithFields(logrus.Fields{
+							"link":    link,
+							"matched": identifier,
+							"reason":  "restart disabled for this dependency",
+						}).Debug("Skipping restart for dependency with restart: false")
+
+						continue
+					}
+
 					logrus.WithFields(logrus.Fields{
 						"link":    link,
 						"matched": identifier,
@@ -682,6 +753,16 @@ func linkedIdentifierMarkedForRestart(
 					matchProject := getProject(nameToContainer[identifier])
 					// Priority 1: Same-project match - return immediately
 					if matchProject == dependentProject {
+						if isRestartDisabled(identifier) {
+							logrus.WithFields(logrus.Fields{
+								"link":    link,
+								"matched": identifier,
+								"reason":  "restart disabled for this dependency",
+							}).Debug("Skipping restart for dependency with restart: false")
+
+							continue
+						}
+
 						logrus.WithFields(logrus.Fields{
 							"link":    link,
 							"matched": identifier,
@@ -696,7 +777,16 @@ func linkedIdentifierMarkedForRestart(
 					// in alphabetical order will be selected, ensuring consistent
 					// cross-project dependency resolution across multiple runs.
 					if crossProjectMatch == "" {
-						crossProjectMatch = identifier
+						// Check if restart is disabled before storing as fallback
+						if isRestartDisabled(identifier) {
+							logrus.WithFields(logrus.Fields{
+								"link":    link,
+								"matched": identifier,
+								"reason":  "restart disabled for this dependency",
+							}).Debug("Skipping restart for dependency with restart: false")
+						} else {
+							crossProjectMatch = identifier
+						}
 					}
 				}
 			}

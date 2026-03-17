@@ -8,29 +8,107 @@ import (
 var _ = ginkgo.Describe("Compose", func() {
 	ginkgo.DescribeTable(
 		"ParseDependsOnLabel",
-		func(input string, expected []string) {
+		func(input string, expected []ServiceDependency) {
 			result := ParseDependsOnLabel(input)
 			gomega.Expect(result).To(gomega.Equal(expected))
 		},
-		ginkgo.Entry("returns nil for empty label", "", nil),
-		ginkgo.Entry("parses single service", "postgres", []string{"postgres"}),
-		ginkgo.Entry("parses multiple services", "postgres,redis", []string{"postgres", "redis"}),
-		ginkgo.Entry("trims whitespace", " postgres , redis ", []string{"postgres", "redis"}),
+		ginkgo.Entry(
+			"returns nil for empty label",
+			"",
+			nil,
+		),
+		ginkgo.Entry(
+			"parses single service",
+			"postgres",
+			[]ServiceDependency{{ServiceName: "postgres", RestartExplicitlyDisabled: false}},
+		),
+		ginkgo.Entry(
+			"parses multiple services",
+			"postgres,redis",
+			[]ServiceDependency{
+				{ServiceName: "postgres", RestartExplicitlyDisabled: false},
+				{ServiceName: "redis", RestartExplicitlyDisabled: false},
+			},
+		),
+		ginkgo.Entry(
+			"trims whitespace",
+			" postgres , redis ",
+			[]ServiceDependency{
+				{ServiceName: "postgres", RestartExplicitlyDisabled: false},
+				{ServiceName: "redis", RestartExplicitlyDisabled: false},
+			},
+		),
 		ginkgo.Entry(
 			"parses colon-separated format",
 			"postgres:service_started:required,redis:service_healthy",
-			[]string{"postgres", "redis"},
+			[]ServiceDependency{
+				{ServiceName: "postgres", RestartExplicitlyDisabled: false},
+				{ServiceName: "redis", RestartExplicitlyDisabled: false},
+			},
 		),
-		ginkgo.Entry("ignores empty parts", "postgres,,redis", []string{"postgres", "redis"}),
 		ginkgo.Entry(
-			"parses JSON format",
+			"ignores empty parts",
+			"postgres,,redis",
+			[]ServiceDependency{
+				{ServiceName: "postgres", RestartExplicitlyDisabled: false},
+				{ServiceName: "redis", RestartExplicitlyDisabled: false},
+			},
+		),
+		ginkgo.Entry(
+			"parses JSON format with condition only",
 			`{"database":{"condition":"service_started"}}`,
-			[]string{"database"},
+			[]ServiceDependency{{ServiceName: "database", RestartExplicitlyDisabled: false}},
 		),
 		ginkgo.Entry(
 			"parses JSON format with multiple services",
 			`{"database":{"condition":"service_started"},"cache":{"condition":"service_healthy"}}`,
-			[]string{"cache", "database"}, // Sorted alphabetically
+			[]ServiceDependency{
+				{ServiceName: "cache", RestartExplicitlyDisabled: false},
+				{ServiceName: "database", RestartExplicitlyDisabled: false},
+			},
+		),
+		ginkgo.Entry(
+			"parses JSON format with restart true",
+			`{"database":{"condition":"service_started","restart":true}}`,
+			[]ServiceDependency{{ServiceName: "database", RestartExplicitlyDisabled: false}},
+		),
+		ginkgo.Entry(
+			"parses JSON format with restart false",
+			`{"database":{"condition":"service_started","restart":false}}`,
+			[]ServiceDependency{{ServiceName: "database", RestartExplicitlyDisabled: true}},
+		),
+		ginkgo.Entry(
+			"parses JSON format with multiple services and mixed restart",
+			`{"database":{"condition":"service_started","restart":false},"cache":{"condition":"service_healthy","restart":true}}`,
+			[]ServiceDependency{
+				{ServiceName: "cache", RestartExplicitlyDisabled: false},
+				{ServiceName: "database", RestartExplicitlyDisabled: true},
+			},
+		),
+		ginkgo.Entry(
+			"parses JSON format with some services missing restart property",
+			`{"database":{"condition":"service_started","restart":false},"cache":{"condition":"service_healthy"}}`,
+			[]ServiceDependency{
+				{ServiceName: "cache", RestartExplicitlyDisabled: false},
+				{ServiceName: "database", RestartExplicitlyDisabled: true},
+			},
+		),
+	)
+
+	ginkgo.DescribeTable(
+		"GetServiceNames",
+		func(dependencies []ServiceDependency, expected []string) {
+			result := GetServiceNames(dependencies)
+			gomega.Expect(result).To(gomega.Equal(expected))
+		},
+		ginkgo.Entry("returns empty slice for nil", nil, []string{}),
+		ginkgo.Entry(
+			"returns service names",
+			[]ServiceDependency{
+				{ServiceName: "postgres", RestartExplicitlyDisabled: false},
+				{ServiceName: "redis", RestartExplicitlyDisabled: true},
+			},
+			[]string{"postgres", "redis"},
 		),
 	)
 

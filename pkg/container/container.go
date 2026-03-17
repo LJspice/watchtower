@@ -701,7 +701,8 @@ func getLinksFromComposeLabel(c *Container, clog *logrus.Entry) []string {
 	clog.WithField("raw_label_value", composeDependsOnLabelValue).
 		Debug("Parsing compose depends-on label")
 
-	services := compose.ParseDependsOnLabel(composeDependsOnLabelValue)
+	dependencies := compose.ParseDependsOnLabel(composeDependsOnLabelValue)
+	services := compose.GetServiceNames(dependencies)
 
 	projectName := compose.GetProjectName(c.containerInfo.Config.Labels)
 
@@ -727,6 +728,62 @@ func getLinksFromComposeLabel(c *Container, clog *logrus.Entry) []string {
 	}).Debug("Retrieved links from compose depends-on label")
 
 	return normalizedLinks
+}
+
+// GetDependsOn returns the service dependencies from the Docker Compose depends_on label.
+//
+// This method parses the com.docker.compose.depends_on label and returns the full
+// dependency information including the restart configuration for each dependency.
+// It returns nil if the label is not present or cannot be parsed.
+//
+// Returns:
+//   - []compose.ServiceDependency: List of service dependencies with restart configuration.
+func (c *Container) GetDependsOn() []compose.ServiceDependency {
+	clog := logrus.WithField("container", c.Name())
+
+	// Check Watchtower's depends-on label first - it doesn't support restart property
+	if links := GetLinksFromWatchtowerLabel(c, clog); links != nil {
+		// Watchtower label doesn't have restart property, return dependencies with restart enabled
+		deps := make([]compose.ServiceDependency, len(links))
+		for i, link := range links {
+			deps[i] = compose.ServiceDependency{
+				ServiceName:               link,
+				RestartExplicitlyDisabled: false,
+			}
+		}
+
+		return deps
+	}
+
+	// Check compose depends-on label.
+	composeDependsOnLabelValue := c.getLabelValueOrEmpty(compose.ComposeDependsOnLabel)
+	if composeDependsOnLabelValue == "" {
+		return nil
+	}
+
+	dependencies := compose.ParseDependsOnLabel(composeDependsOnLabelValue)
+	if len(dependencies) == 0 {
+		return nil
+	}
+
+	projectName := compose.GetProjectName(c.containerInfo.Config.Labels)
+
+	// Normalize service names with project prefix
+	for i := range dependencies {
+		normalizedService := util.NormalizeContainerName(dependencies[i].ServiceName)
+		if projectName != "" && !strings.HasPrefix(normalizedService, projectName+"-") {
+			normalizedService = projectName + "-" + normalizedService
+		}
+
+		dependencies[i].ServiceName = normalizedService
+	}
+
+	clog.WithFields(logrus.Fields{
+		"compose_depends_on": composeDependsOnLabelValue,
+		"dependencies":       dependencies,
+	}).Debug("Retrieved dependencies with restart config from compose depends-on label")
+
+	return dependencies
 }
 
 // getLinksFromHostConfig extracts dependency links from Docker HostConfig.

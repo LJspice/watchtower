@@ -1407,4 +1407,339 @@ var _ = ginkgo.Describe("the update action", func() {
 			})
 		})
 	})
+
+	// Tests for Docker Compose depends_on restart property
+	// These tests are nested inside the main "the update action" Describe block
+	// to test the Docker Compose restart property functionality
+})
+
+var _ = ginkgo.Describe("Docker Compose restart property", func() {
+	ginkgo.When("testing implicit restart with restart: false in depends_on", func() {
+		ginkgo.It(
+			"should NOT restart dependent container when dependency has restart: false",
+			func() {
+				// Create a base container (the dependency) that will be updated
+				baseContainer := mockActions.CreateMockContainerWithConfig(
+					"myproject-db-1",
+					"/myproject-db-1",
+					"postgres:latest",
+					true,
+					false,
+					time.Now().AddDate(0, 0, -1), // stale
+					&dockerContainer.Config{
+						Labels: map[string]string{
+							"com.docker.compose.project":          "myproject",
+							"com.docker.compose.service":          "db",
+							"com.docker.compose.container-number": "1",
+						},
+						ExposedPorts: map[nat.Port]struct{}{},
+					})
+
+				// Create a dependent container with restart: false
+				// This container depends on db with restart: false, so it should NOT restart
+				dependentContainer := mockActions.CreateMockContainerWithConfig(
+					"myproject-web-1",
+					"/myproject-web-1",
+					"nginx:alpine",
+					true,
+					false,
+					time.Now(), // fresh
+					&dockerContainer.Config{
+						Labels: map[string]string{
+							"com.docker.compose.project":          "myproject",
+							"com.docker.compose.service":          "web",
+							"com.docker.compose.container-number": "1",
+							// Use Docker Compose depends_on with restart: false
+							"com.docker.compose.depends_on": `{"db":{"condition":"service_started","restart":false}}`,
+						},
+						ExposedPorts: map[nat.Port]struct{}{},
+					})
+
+				containers := []types.Container{baseContainer, dependentContainer}
+
+				// Initially, only baseContainer should be marked for restart
+				baseContainer.SetStale(true)
+				gomega.Expect(baseContainer.ToRestart()).To(gomega.BeTrue())
+				gomega.Expect(dependentContainer.ToRestart()).To(gomega.BeFalse())
+
+				// Run UpdateImplicitRestart
+				actions.UpdateImplicitRestart(containers, containers)
+
+				// Verify: dependent should NOT be marked for restart because restart: false
+				gomega.Expect(baseContainer.ToRestart()).To(gomega.BeTrue())
+				gomega.Expect(dependentContainer.ToRestart()).To(gomega.BeFalse())
+			},
+		)
+
+		ginkgo.It(
+			"should restart dependent container when dependency has restart: true",
+			func() {
+				// Create a base container (the dependency) that will be updated
+				baseContainer := mockActions.CreateMockContainerWithConfig(
+					"myproject-db-1",
+					"/myproject-db-1",
+					"postgres:latest",
+					true,
+					false,
+					time.Now().AddDate(0, 0, -1), // stale
+					&dockerContainer.Config{
+						Labels: map[string]string{
+							"com.docker.compose.project":          "myproject",
+							"com.docker.compose.service":          "db",
+							"com.docker.compose.container-number": "1",
+						},
+						ExposedPorts: map[nat.Port]struct{}{},
+					})
+
+				// Create a dependent container with restart: true
+				dependentContainer := mockActions.CreateMockContainerWithConfig(
+					"myproject-web-1",
+					"/myproject-web-1",
+					"nginx:alpine",
+					true,
+					false,
+					time.Now(), // fresh
+					&dockerContainer.Config{
+						Labels: map[string]string{
+							"com.docker.compose.project":          "myproject",
+							"com.docker.compose.service":          "web",
+							"com.docker.compose.container-number": "1",
+							// Use Docker Compose depends_on with restart: true
+							"com.docker.compose.depends_on": `{"db":{"condition":"service_started","restart":true}}`,
+						},
+						ExposedPorts: map[nat.Port]struct{}{},
+					})
+
+				containers := []types.Container{baseContainer, dependentContainer}
+
+				// Initially, only baseContainer should be marked for restart
+				baseContainer.SetStale(true)
+				gomega.Expect(baseContainer.ToRestart()).To(gomega.BeTrue())
+				gomega.Expect(dependentContainer.ToRestart()).To(gomega.BeFalse())
+
+				// Run UpdateImplicitRestart
+				actions.UpdateImplicitRestart(containers, containers)
+
+				// Verify: dependent SHOULD be marked for restart because restart: true
+				gomega.Expect(baseContainer.ToRestart()).To(gomega.BeTrue())
+				gomega.Expect(dependentContainer.ToRestart()).To(gomega.BeTrue())
+			},
+		)
+
+		ginkgo.It(
+			"should restart dependent container when no restart property is specified (backward compatibility)",
+			func() {
+				// Create a base container (the dependency) that will be updated
+				baseContainer := mockActions.CreateMockContainerWithConfig(
+					"myproject-db-1",
+					"/myproject-db-1",
+					"postgres:latest",
+					true,
+					false,
+					time.Now().AddDate(0, 0, -1), // stale
+					&dockerContainer.Config{
+						Labels: map[string]string{
+							"com.docker.compose.project":          "myproject",
+							"com.docker.compose.service":          "db",
+							"com.docker.compose.container-number": "1",
+						},
+						ExposedPorts: map[nat.Port]struct{}{},
+					})
+
+				// Create a dependent container WITHOUT restart property (legacy format)
+				dependentContainer := mockActions.CreateMockContainerWithConfig(
+					"myproject-web-1",
+					"/myproject-web-1",
+					"nginx:alpine",
+					true,
+					false,
+					time.Now(), // fresh
+					&dockerContainer.Config{
+						Labels: map[string]string{
+							"com.docker.compose.project":          "myproject",
+							"com.docker.compose.service":          "web",
+							"com.docker.compose.container-number": "1",
+							// Use Docker Compose depends_on WITHOUT restart property
+							"com.docker.compose.depends_on": `{"db":{"condition":"service_started"}}`,
+						},
+						ExposedPorts: map[nat.Port]struct{}{},
+					})
+
+				containers := []types.Container{baseContainer, dependentContainer}
+
+				// Initially, only baseContainer should be marked for restart
+				baseContainer.SetStale(true)
+				gomega.Expect(baseContainer.ToRestart()).To(gomega.BeTrue())
+				gomega.Expect(dependentContainer.ToRestart()).To(gomega.BeFalse())
+
+				// Run UpdateImplicitRestart
+				actions.UpdateImplicitRestart(containers, containers)
+
+				// Verify: dependent SHOULD be marked for restart (default behavior)
+				gomega.Expect(baseContainer.ToRestart()).To(gomega.BeTrue())
+				gomega.Expect(dependentContainer.ToRestart()).To(gomega.BeTrue())
+			},
+		)
+
+		ginkgo.It(
+			"should handle multiple dependencies with mixed restart settings",
+			func() {
+				// Create base containers
+				dbContainer := mockActions.CreateMockContainerWithConfig(
+					"myproject-db-1",
+					"/myproject-db-1",
+					"postgres:latest",
+					true,
+					false,
+					time.Now().AddDate(0, 0, -1), // stale
+					&dockerContainer.Config{
+						Labels: map[string]string{
+							"com.docker.compose.project":          "myproject",
+							"com.docker.compose.service":          "db",
+							"com.docker.compose.container-number": "1",
+						},
+						ExposedPorts: map[nat.Port]struct{}{},
+					})
+
+				redisContainer := mockActions.CreateMockContainerWithConfig(
+					"myproject-redis-1",
+					"/myproject-redis-1",
+					"redis:latest",
+					true,
+					false,
+					time.Now().AddDate(0, 0, -1), // stale
+					&dockerContainer.Config{
+						Labels: map[string]string{
+							"com.docker.compose.project":          "myproject",
+							"com.docker.compose.service":          "redis",
+							"com.docker.compose.container-number": "1",
+						},
+						ExposedPorts: map[nat.Port]struct{}{},
+					})
+
+				// Create a dependent container with mixed restart settings
+				// It depends on db with restart: false, and redis with restart: true
+				dependentContainer := mockActions.CreateMockContainerWithConfig(
+					"myproject-web-1",
+					"/myproject-web-1",
+					"nginx:alpine",
+					true,
+					false,
+					time.Now(), // fresh
+					&dockerContainer.Config{
+						Labels: map[string]string{
+							"com.docker.compose.project":          "myproject",
+							"com.docker.compose.service":          "web",
+							"com.docker.compose.container-number": "1",
+							// Use Docker Compose depends_on with mixed restart settings
+							"com.docker.compose.depends_on": `{
+										"db": {"condition": "service_started", "restart": false},
+										"redis": {"condition": "service_healthy", "restart": true}
+									}`,
+						},
+						ExposedPorts: map[nat.Port]struct{}{},
+					})
+
+				containers := []types.Container{dbContainer, redisContainer, dependentContainer}
+
+				// Initially, both db and redis should be marked for restart
+				dbContainer.SetStale(true)
+				redisContainer.SetStale(true)
+				gomega.Expect(dbContainer.ToRestart()).To(gomega.BeTrue())
+				gomega.Expect(redisContainer.ToRestart()).To(gomega.BeTrue())
+				gomega.Expect(dependentContainer.ToRestart()).To(gomega.BeFalse())
+
+				// Run UpdateImplicitRestart
+				actions.UpdateImplicitRestart(containers, containers)
+
+				// Verify:
+				// - dbContainer should be restarted (it's stale)
+				// - redisContainer should be restarted (it's stale)
+				// - dependentContainer should restart because redis (restart: true) restarted,
+				//   but NOT because db (restart: false) restarted
+				gomega.Expect(dbContainer.ToRestart()).To(gomega.BeTrue())
+				gomega.Expect(redisContainer.ToRestart()).To(gomega.BeTrue())
+				gomega.Expect(dependentContainer.ToRestart()).To(gomega.BeTrue())
+			},
+		)
+
+		ginkgo.It(
+			"should handle dependency on multiple containers where one has restart: false",
+			func() {
+				// Create two stale containers that a dependent depends on
+				containerA := mockActions.CreateMockContainerWithConfig(
+					"myproject-container-a-1",
+					"/myproject-container-a-1",
+					"image-a:latest",
+					true,
+					false,
+					time.Now().AddDate(0, 0, -1), // stale
+					&dockerContainer.Config{
+						Labels: map[string]string{
+							"com.docker.compose.project":          "myproject",
+							"com.docker.compose.service":          "container-a",
+							"com.docker.compose.container-number": "1",
+						},
+						ExposedPorts: map[nat.Port]struct{}{},
+					})
+
+				containerB := mockActions.CreateMockContainerWithConfig(
+					"myproject-container-b-1",
+					"/myproject-container-b-1",
+					"image-b:latest",
+					true,
+					false,
+					time.Now().AddDate(0, 0, -1), // stale
+					&dockerContainer.Config{
+						Labels: map[string]string{
+							"com.docker.compose.project":          "myproject",
+							"com.docker.compose.service":          "container-b",
+							"com.docker.compose.container-number": "1",
+						},
+						ExposedPorts: map[nat.Port]struct{}{},
+					})
+
+				// Create a dependent container that depends on both A and B
+				// A has restart: false, B has restart: true (or not specified = default restart)
+				dependentContainer := mockActions.CreateMockContainerWithConfig(
+					"myproject-dependent-1",
+					"/myproject-dependent-1",
+					"dependent:latest",
+					true,
+					false,
+					time.Now(), // fresh
+					&dockerContainer.Config{
+						Labels: map[string]string{
+							"com.docker.compose.project":          "myproject",
+							"com.docker.compose.service":          "dependent",
+							"com.docker.compose.container-number": "1",
+							// Depends on A with restart: false, and B without restart property
+							"com.docker.compose.depends_on": `{
+										"container-a": {"condition": "service_started", "restart": false},
+										"container-b": {"condition": "service_started"}
+									}`,
+						},
+						ExposedPorts: map[nat.Port]struct{}{},
+					})
+
+				containers := []types.Container{containerA, containerB, dependentContainer}
+
+				// Both A and B are stale
+				containerA.SetStale(true)
+				containerB.SetStale(true)
+				gomega.Expect(containerA.ToRestart()).To(gomega.BeTrue())
+				gomega.Expect(containerB.ToRestart()).To(gomega.BeTrue())
+				gomega.Expect(dependentContainer.ToRestart()).To(gomega.BeFalse())
+
+				// Run UpdateImplicitRestart
+				actions.UpdateImplicitRestart(containers, containers)
+
+				// Verify: dependent should restart because container-b restarted,
+				// even though container-a has restart: false
+				gomega.Expect(containerA.ToRestart()).To(gomega.BeTrue())
+				gomega.Expect(containerB.ToRestart()).To(gomega.BeTrue())
+				gomega.Expect(dependentContainer.ToRestart()).To(gomega.BeTrue())
+			},
+		)
+	})
 })

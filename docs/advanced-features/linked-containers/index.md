@@ -57,6 +57,85 @@ services:
 
 The `com.docker.compose.depends_on` label is automatically set by Docker Compose and parsed by Watchtower to extract service names.
 
+#### Long-Form Depends_on Syntax (Docker Compose v2+)
+
+Watchtower supports the Docker Compose v2+ long-form `depends_on` syntax, which provides additional control over dependency behavior:
+
+```yaml title="Long-form depends_on with restart property"
+services:
+  web:
+    image: nginx
+    depends_on:
+      database:
+        condition: service_healthy
+        restart: false
+  database:
+    image: postgres
+```
+
+##### The `restart` Property
+
+The `restart` property allows you to control whether a dependent container should be restarted when its dependency is updated:
+
+- **`restart: false`**: When specified, Watchtower will NOT restart the dependent container when its dependency is updated. This is useful for scenarios where you want a dependency to restart (e.g., after an image update) but not restart its dependents.
+
+- **Default behavior** (not specified or `restart: true`): Watchtower will restart the dependent container when its dependency is updated, maintaining the standard linked-containers behavior.
+
+!!! Note
+    The `restart` property only affects whether Watchtower restarts dependent containers when a dependency is updated. It does not affect the update order or the stopping/starting sequence during updates.
+
+##### Short-Form vs Long-Form Syntax
+
+| Feature                                        | Short-Form | Long-Form |
+|------------------------------------------------|------------|-----------|
+| Basic dependency                               | ✅          | ✅         |
+| `condition` (service_healthy, service_started) | ❌          | ✅         |
+| `restart` control                              | ❌          | ✅         |
+
+**Short-form example:**
+
+```yaml
+services:
+  web:
+    image: nginx
+    depends_on:
+      - database
+```
+
+**Long-form example:**
+
+```yaml
+services:
+  web:
+    image: nginx
+    depends_on:
+      database:
+        condition: service_healthy
+        restart: false
+```
+
+##### Practical Example
+
+In this example, when the `database` container is updated and restarted, the `web` container will NOT be automatically restarted:
+
+```yaml title="Preventing dependent restart"
+services:
+  web:
+    image: nginx
+    depends_on:
+      database:
+        condition: service_healthy
+        restart: false  # web will NOT restart when database restarts
+  database:
+    image: postgres
+```
+
+This is useful when:
+
+- The web application can handle database restarts gracefully
+- You want to avoid unnecessary restarts of dependent services
+- You prefer to manually control when dependent containers restart
+
 #### Docker Links and Network Mode
 
 For legacy Docker setups using links or `network_mode: service:container`, Watchtower treats these as implicit dependencies:

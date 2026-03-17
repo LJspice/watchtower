@@ -2,9 +2,10 @@
 // including parsing depends_on labels and extracting service names for dependency management.
 //
 // Key components:
-//   - ParseDependsOnLabel: Parses the Docker Compose depends_on label value,
-//     expecting a comma-separated list of service[:condition[:required]] format,
-//     returns a slice of service names.
+//   - ServiceDependency: Represents a service dependency with name and restart configuration.
+//   - ParseDependsOnLabel: Parses the Docker Compose depends_on label value and returns
+//     ServiceDependency objects containing service name and restart configuration.
+//   - GetServiceNames: Extracts service names from ServiceDependency slice for backward compatibility.
 //   - GetServiceName: Extracts the service name from Docker Compose labels
 //     using the com.docker.compose.service label.
 //
@@ -13,6 +14,12 @@
 //	labels := map[string]string{
 //		"com.docker.compose.service": "myservice",
 //	}
-//	services := compose.ParseDependsOnLabel("postgres:service_started:required,redis")
+//	dependencies := compose.ParseDependsOnLabel("postgres:service_started:required,redis")
+//	// Get service names for backward compatibility
+//	serviceNames := compose.GetServiceNames(dependencies)
+//	// Or access individual dependency info
+//	for _, dep := range dependencies {
+//		fmt.Printf("Service: %s, Restart disabled: %v\n", dep.ServiceName, dep.RestartExplicitlyDisabled)
+//	}
 //	serviceName := compose.GetServiceName(labels)
 package compose

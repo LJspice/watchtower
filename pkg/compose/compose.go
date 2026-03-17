@@ -20,17 +20,43 @@ const (
 	ComposeContainerNumber = "com.docker.compose.container-number"
 )
 
+// ServiceDependency represents a service dependency from Docker Compose depends_on.
+type ServiceDependency struct {
+	// ServiceName is the name of the dependent service.
+	ServiceName string
+	// RestartExplicitlyDisabled indicates whether restart is explicitly set to false.
+	// When true, the dependent container should NOT be restarted when its dependency restarts.
+	RestartExplicitlyDisabled bool
+}
+
+// GetServiceNames returns the list of service names from the given dependencies.
+// This is a convenience function for backward compatibility.
+func GetServiceNames(dependencies []ServiceDependency) []string {
+	result := make([]string, len(dependencies))
+	for i, dep := range dependencies {
+		result[i] = dep.ServiceName
+	}
+
+	return result
+}
+
 // ParseDependsOnLabel parses the Docker Compose depends_on label value.
 //
 // It handles both JSON format (Docker Compose v2+) and comma-separated string format.
-// Returns a slice of service names.
+// Returns a slice of ServiceDependency containing service names and restart configuration.
+//
+// Supported formats:
+//
+//	Short form: depends_on: [db, redis]
+//	Long form with condition: depends_on: { db: { condition: service_started } }
+//	Long form with restart: depends_on: { db: { condition: service_started, restart: true } }
 //
 // Parameters:
 //   - labelValue: The raw label value from com.docker.compose.depends_on.
 //
 // Returns:
-//   - []string: List of service names.
-func ParseDependsOnLabel(labelValue string) []string {
+//   - []ServiceDependency: List of service dependencies with their restart configuration.
+func ParseDependsOnLabel(labelValue string) []ServiceDependency {
 	if labelValue == "" {
 		return nil
 	}
@@ -46,22 +72,21 @@ func ParseDependsOnLabel(labelValue string) []string {
 		if err != nil {
 			clog.WithError(err).Debug("Failed to parse as JSON, falling back to string parsing")
 		} else {
-			services := make([]string, 0, len(dependsOn))
-			for service := range dependsOn {
-				services = append(services, service)
-			}
+			dependencies := parseLongForm(dependsOn)
 			// Sort for consistent ordering
-			sort.Strings(services)
-			clog.WithField("parsed_services", services).
+			sort.Slice(dependencies, func(i, j int) bool {
+				return dependencies[i].ServiceName < dependencies[j].ServiceName
+			})
+			clog.WithField("parsed_dependencies", dependencies).
 				Debug("Parsed JSON format compose depends-on label")
 
-			return services
+			return dependencies
 		}
 	}
 
 	// Fall back to string parsing (legacy format)
 	deps := strings.Split(labelValue, ",")
-	services := make([]string, 0, len(deps))
+	dependencies := make([]ServiceDependency, 0, len(deps))
 
 	// Parse comma-separated list of service:condition:required
 	for _, dep := range deps {
@@ -76,14 +101,49 @@ func ParseDependsOnLabel(labelValue string) []string {
 
 		serviceName := strings.TrimSpace(parts[0])
 		if serviceName != "" {
-			services = append(services, serviceName)
+			dependencies = append(dependencies, ServiceDependency{
+				ServiceName:               serviceName,
+				RestartExplicitlyDisabled: false,
+			})
 		}
 	}
 
-	clog.WithField("parsed_services", services).
+	clog.WithField("parsed_dependencies", dependencies).
 		Debug("Completed parsing string format compose depends-on label")
 
-	return services
+	return dependencies
+}
+
+// parseLongForm parses the long-form JSON format (Docker Compose v2+).
+// This format supports condition and restart properties.
+func parseLongForm(dependsOn map[string]any) []ServiceDependency {
+	result := make([]ServiceDependency, 0, len(dependsOn))
+
+	for serviceName, config := range dependsOn {
+		if serviceName == "" {
+			continue
+		}
+
+		// Default: restart is enabled (not explicitly disabled)
+		restartDisabled := false
+
+		// Try to parse the config as a map to extract restart property
+		if configMap, ok := config.(map[string]any); ok {
+			if restartVal, exists := configMap["restart"]; exists {
+				// If restart is explicitly set to false, mark it as disabled
+				if restartBool, isBool := restartVal.(bool); isBool {
+					restartDisabled = !restartBool // restart: false means disabled
+				}
+			}
+		}
+
+		result = append(result, ServiceDependency{
+			ServiceName:               serviceName,
+			RestartExplicitlyDisabled: restartDisabled,
+		})
+	}
+
+	return result
 }
 
 // GetProjectName extracts the project name from Docker Compose labels.
