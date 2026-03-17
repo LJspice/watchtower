@@ -292,6 +292,24 @@ Environment Variable: WATCHTOWER_NO_RESTART
 
     Use cautiously for self-updating Watchtower instances and consider external lifecycle management (e.g., Docker Compose) to restart containers manually.
 
+### Disable Compose Depends-On
+
+Disables the Docker Compose `depends_on` label support for linked containers.
+When enabled, Watchtower will not use the `com.docker.compose.depends_on` label to determine restart order.
+The legacy Watchtower label-based depends-on (`com.centurylinklabs.watchtower.depends-on`) still works when this is disabled.
+
+```text
+            Argument: --no-compose-depends-on
+Environment Variable: WATCHTOWER_NO_COMPOSE_DEPENDS_ON
+                Type: Boolean
+             Default: false
+```
+
+!!! Note
+    When disabled, only the legacy Watchtower label `com.centurylinklabs.watchtower.depends-on` is used for linked container restarts.
+
+    See [Linked Containers](../../advanced-features/linked-containers/index.md).
+
 ### Rolling Restart
 
 Restarts containers one at a time to minimize downtime.

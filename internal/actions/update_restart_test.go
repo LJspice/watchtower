@@ -600,7 +600,7 @@ var _ = ginkgo.Describe("the update action", func() {
 					containerB.SetStale(true)
 
 					// Run UpdateImplicitRestart - should not panic or error on invalid dependencies
-					actions.UpdateImplicitRestart(containers, containers)
+					actions.UpdateImplicitRestart(containers, containers, false)
 
 					// Container A should not be marked for restart due to invalid dependency
 					gomega.Expect(containerA.ToRestart()).To(gomega.BeFalse())
@@ -674,7 +674,7 @@ var _ = ginkgo.Describe("the update action", func() {
 				gomega.Expect(containerA.ToRestart()).To(gomega.BeFalse())
 
 				// Run UpdateImplicitRestart to propagate restart through the chain
-				actions.UpdateImplicitRestart(containers, containers)
+				actions.UpdateImplicitRestart(containers, containers, false)
 
 				// Verify state transitions: all containers should now be marked for restart
 				gomega.Expect(containerD.ToRestart()).To(gomega.BeTrue())
@@ -745,7 +745,7 @@ var _ = ginkgo.Describe("the update action", func() {
 				base.SetStale(true)
 
 				// Run UpdateImplicitRestart
-				actions.UpdateImplicitRestart(containers, containers)
+				actions.UpdateImplicitRestart(containers, containers, false)
 
 				// Verify all dependents are marked for restart
 				gomega.Expect(base.ToRestart()).To(gomega.BeTrue())
@@ -790,7 +790,7 @@ var _ = ginkgo.Describe("the update action", func() {
 				containerA.SetStale(true)
 
 				// Run UpdateImplicitRestart - should handle circular dependency gracefully
-				actions.UpdateImplicitRestart(containers, containers)
+				actions.UpdateImplicitRestart(containers, containers, false)
 
 				// Both should be marked for restart despite circular dependency
 				gomega.Expect(containerA.ToRestart()).To(gomega.BeTrue())
@@ -846,7 +846,7 @@ var _ = ginkgo.Describe("the update action", func() {
 				staleWithDeps.SetStale(true)
 
 				// Run UpdateImplicitRestart
-				actions.UpdateImplicitRestart(containers, containers)
+				actions.UpdateImplicitRestart(containers, containers, false)
 
 				// Verify correct restart marking
 				gomega.Expect(staleNoDeps.ToRestart()).To(gomega.BeTrue())
@@ -959,7 +959,7 @@ var _ = ginkgo.Describe("the update action", func() {
 				gomega.Expect(containerA.ToRestart()).To(gomega.BeFalse())
 
 				// Run UpdateImplicitRestart to propagate restart through the deep chain
-				actions.UpdateImplicitRestart(containers, containers)
+				actions.UpdateImplicitRestart(containers, containers, false)
 
 				// Verify state transitions: all containers should now be marked for restart
 				gomega.Expect(containerF.ToRestart()).To(gomega.BeTrue())
@@ -1024,7 +1024,7 @@ var _ = ginkgo.Describe("the update action", func() {
 					gomega.Expect(webContainer.ToRestart()).To(gomega.BeFalse())
 
 					// Run UpdateImplicitRestart - should match "project1-db-1" to "db" and propagate
-					actions.UpdateImplicitRestart(containers, containers)
+					actions.UpdateImplicitRestart(containers, containers, false)
 
 					// Verify that restart propagates through service name matching
 					gomega.Expect(dbContainer.ToRestart()).To(gomega.BeTrue())
@@ -1463,7 +1463,7 @@ var _ = ginkgo.Describe("Docker Compose restart property", func() {
 				gomega.Expect(dependentContainer.ToRestart()).To(gomega.BeFalse())
 
 				// Run UpdateImplicitRestart
-				actions.UpdateImplicitRestart(containers, containers)
+				actions.UpdateImplicitRestart(containers, containers, false)
 
 				// Verify: dependent should NOT be marked for restart because restart: false
 				gomega.Expect(baseContainer.ToRestart()).To(gomega.BeTrue())
@@ -1518,7 +1518,7 @@ var _ = ginkgo.Describe("Docker Compose restart property", func() {
 				gomega.Expect(dependentContainer.ToRestart()).To(gomega.BeFalse())
 
 				// Run UpdateImplicitRestart
-				actions.UpdateImplicitRestart(containers, containers)
+				actions.UpdateImplicitRestart(containers, containers, false)
 
 				// Verify: dependent SHOULD be marked for restart because restart: true
 				gomega.Expect(baseContainer.ToRestart()).To(gomega.BeTrue())
@@ -1573,7 +1573,7 @@ var _ = ginkgo.Describe("Docker Compose restart property", func() {
 				gomega.Expect(dependentContainer.ToRestart()).To(gomega.BeFalse())
 
 				// Run UpdateImplicitRestart
-				actions.UpdateImplicitRestart(containers, containers)
+				actions.UpdateImplicitRestart(containers, containers, false)
 
 				// Verify: dependent SHOULD be marked for restart (default behavior)
 				gomega.Expect(baseContainer.ToRestart()).To(gomega.BeTrue())
@@ -1650,7 +1650,7 @@ var _ = ginkgo.Describe("Docker Compose restart property", func() {
 				gomega.Expect(dependentContainer.ToRestart()).To(gomega.BeFalse())
 
 				// Run UpdateImplicitRestart
-				actions.UpdateImplicitRestart(containers, containers)
+				actions.UpdateImplicitRestart(containers, containers, false)
 
 				// Verify:
 				// - dbContainer should be restarted (it's stale)
@@ -1732,7 +1732,7 @@ var _ = ginkgo.Describe("Docker Compose restart property", func() {
 				gomega.Expect(dependentContainer.ToRestart()).To(gomega.BeFalse())
 
 				// Run UpdateImplicitRestart
-				actions.UpdateImplicitRestart(containers, containers)
+				actions.UpdateImplicitRestart(containers, containers, false)
 
 				// Verify: dependent should restart because container-b restarted,
 				// even though container-a has restart: false

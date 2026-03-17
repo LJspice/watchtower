@@ -145,6 +145,12 @@ var (
 	// controlling CPU limit copying behavior for compatibility with different container runtimes like Podman.
 	cpuCopyMode string
 
+	// noComposeDependsOn disables Docker Compose depends_on support when true.
+	//
+	// It is set during preRun via the --no-compose-depends-on flag or the WATCHTOWER_NO_COMPOSE_DEPENDS_ON environment variable,
+	// allowing users to disable Compose depends_on while keeping Watchtower label-based depends_on working.
+	noComposeDependsOn bool
+
 	// currentWatchtowerContainerID stores the current Watchtower container ID.
 	//
 	// It is initialized once in preRun after the client is set up, and used throughout the application
@@ -312,6 +318,7 @@ func preRun(cmd *cobra.Command, _ []string) {
 	warnOnHeadPullFailed, _ := flagsSet.GetString("warn-on-head-failure")
 	disableMemorySwappiness, _ := flagsSet.GetBool("disable-memory-swappiness")
 	cpuCopyMode, _ = flagsSet.GetString("cpu-copy-mode")
+	noComposeDependsOn, _ = flagsSet.GetBool("no-compose-depends-on")
 
 	// Warn about potential redundancy in flag combinations that could result in no action.
 	if monitorOnly && noPull {
@@ -551,6 +558,7 @@ func runMain(cfg types.RunConfig) int {
 			RunOnce:                      params.RunOnce,               // Perform one-time update and exit
 			SkipSelfUpdate:               params.SkipSelfUpdate,        // Skip Watchtower self-update
 			CurrentContainerID:           currentWatchtowerContainerID, // ID of the current Watchtower container for self-update logic
+			NoComposeDependsOn:           noComposeDependsOn,           // Disable Compose depends_on support
 		}
 
 		metric := actions.RunUpdatesWithNotifications(ctx, actionParams)

@@ -56,6 +56,7 @@ type RunUpdatesWithNotificationsParams struct {
 	RunOnce                      bool              // Perform one-time update and exit
 	SkipSelfUpdate               bool              // Skip Watchtower self-update
 	CurrentContainerID           types.ContainerID // ID of the current Watchtower container for self-update logic
+	NoComposeDependsOn           bool              // Disable Docker Compose depends_on support if true
 }
 
 // RunUpdatesWithNotifications performs container updates and sends notifications about the results.
@@ -96,6 +97,7 @@ func RunUpdatesWithNotifications(
 		RunOnce:            params.RunOnce,            // Perform one-time update and exit
 		SkipSelfUpdate:     params.SkipSelfUpdate,     // Skip Watchtower self-update
 		CurrentContainerID: params.CurrentContainerID, // ID of the current Watchtower container for self-update logic
+		NoComposeDependsOn: params.NoComposeDependsOn, // Disable Docker Compose depends_on support
 	}
 
 	// Execute the container update operation

@@ -304,6 +304,13 @@ func RegisterSystemFlags(rootCmd *cobra.Command) {
 		"Default GID to run lifecycle hooks as (can be overridden by container labels)",
 	)
 
+	flags.BoolP(
+		"no-compose-depends-on",
+		"",
+		envBool("WATCHTOWER_NO_COMPOSE_DEPENDS_ON"),
+		"Disable Docker Compose depends_on support",
+	)
+
 	flags.Bool(
 		"registry-tls-skip",
 		envBool("WATCHTOWER_REGISTRY_TLS_SKIP"),

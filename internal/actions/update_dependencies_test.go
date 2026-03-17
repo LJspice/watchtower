@@ -134,7 +134,7 @@ var _ = ginkgo.Describe("the update action", func() {
 			gomega.Expect(provider.ToRestart()).To(gomega.BeTrue())
 			gomega.Expect(consumer.ToRestart()).To(gomega.BeFalse())
 
-			actions.UpdateImplicitRestart(containers, containers)
+			actions.UpdateImplicitRestart(containers, containers, false)
 
 			gomega.Expect(containers[0].ToRestart()).To(gomega.BeTrue())
 			gomega.Expect(containers[1].ToRestart()).To(gomega.BeTrue())
@@ -152,7 +152,7 @@ var _ = ginkgo.Describe("the update action", func() {
 				gomega.Expect(containers[0].ToRestart()).To(gomega.BeTrue())  // db
 				gomega.Expect(containers[1].ToRestart()).To(gomega.BeFalse()) // web
 
-				actions.UpdateImplicitRestart(containers, containers)
+				actions.UpdateImplicitRestart(containers, containers, false)
 
 				// web should be marked for restart because it depends on db
 				gomega.Expect(containers[0].ToRestart()).To(gomega.BeTrue())
@@ -173,7 +173,7 @@ var _ = ginkgo.Describe("the update action", func() {
 				gomega.Expect(containers[1].ToRestart()).To(gomega.BeFalse()) // db
 				gomega.Expect(containers[2].ToRestart()).To(gomega.BeFalse()) // app
 
-				actions.UpdateImplicitRestart(containers, containers)
+				actions.UpdateImplicitRestart(containers, containers, false)
 
 				// All should be marked for restart: cache -> db -> app
 				gomega.Expect(containers[0].ToRestart()).To(gomega.BeTrue())
@@ -194,7 +194,7 @@ var _ = ginkgo.Describe("the update action", func() {
 				gomega.Expect(containers[0].ToRestart()).To(gomega.BeTrue())  // db
 				gomega.Expect(containers[1].ToRestart()).To(gomega.BeFalse()) // web
 
-				actions.UpdateImplicitRestart(containers, containers)
+				actions.UpdateImplicitRestart(containers, containers, false)
 
 				// web should be marked for restart because it depends on db
 				gomega.Expect(containers[0].ToRestart()).To(gomega.BeTrue())
@@ -256,7 +256,7 @@ var _ = ginkgo.Describe("the update action", func() {
 			gomega.Expect(containerA.ToRestart()).To(gomega.BeFalse())
 
 			// Run UpdateImplicitRestart to propagate restart through the chain
-			actions.UpdateImplicitRestart(containers, containers)
+			actions.UpdateImplicitRestart(containers, containers, false)
 
 			// Verify that restart propagates: A and B should now be marked for restart
 			gomega.Expect(containers[0].ToRestart()).To(gomega.BeTrue()) // C
@@ -920,7 +920,7 @@ var _ = ginkgo.Describe("the update action", func() {
 					gomega.Expect(dependency.ToRestart()).To(gomega.BeTrue())
 					gomega.Expect(dependent.ToRestart()).To(gomega.BeFalse())
 
-					actions.UpdateImplicitRestart(containers, containers)
+					actions.UpdateImplicitRestart(containers, containers, false)
 
 					// Verify that restart propagates to dependent
 					gomega.Expect(containers[0].ToRestart()).To(gomega.BeTrue()) // dependency
@@ -1361,7 +1361,7 @@ var _ = ginkgo.Describe("the update action", func() {
 				gomega.Expect(dependency.ToRestart()).To(gomega.BeTrue())
 				gomega.Expect(dependent.ToRestart()).To(gomega.BeFalse())
 
-				actions.UpdateImplicitRestart(containers, containers)
+				actions.UpdateImplicitRestart(containers, containers, false)
 
 				gomega.Expect(containers[0].ToRestart()).To(gomega.BeTrue()) // dependency
 				gomega.Expect(containers[1].ToRestart()).To(gomega.BeTrue()) // dependent
@@ -1375,7 +1375,7 @@ var _ = ginkgo.Describe("the update action", func() {
 				gomega.Expect(dependency.ToRestart()).To(gomega.BeFalse())
 				gomega.Expect(dependent.ToRestart()).To(gomega.BeTrue())
 
-				actions.UpdateImplicitRestart(containers, containers)
+				actions.UpdateImplicitRestart(containers, containers, false)
 
 				// With unidirectional logic, restart does NOT propagate from dependent to dependency
 				gomega.Expect(containers[0].ToRestart()).

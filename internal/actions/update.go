@@ -319,7 +319,7 @@ func Update(
 		}
 	} else {
 		// Mark containers linked to restarting ones for restart without updating.
-		UpdateImplicitRestart(allContainers, filteredContainers)
+		UpdateImplicitRestart(allContainers, filteredContainers, config.NoComposeDependsOn)
 	}
 
 	// Collect all containers to restart (updates and implicit restarts)
@@ -449,7 +449,8 @@ func hasSelfDependency(c types.Container) bool {
 // Parameters:
 //   - allContainers: List of all containers.
 //   - containers: List of containers to update.
-func UpdateImplicitRestart(allContainers, containers []types.Container) {
+//   - noComposeDependsOn: If true, skip processing Docker Compose depends_on labels.
+func UpdateImplicitRestart(allContainers, containers []types.Container, noComposeDependsOn bool) {
 	logrus.Debug("Starting UpdateImplicitRestart")
 
 	byID := make(map[types.ContainerID]types.Container, len(allContainers))
@@ -462,7 +463,7 @@ func UpdateImplicitRestart(allContainers, containers []types.Container) {
 
 	// Build a map of containers to their restart-disabled dependencies
 	// This maps container name -> set of dependency names that have restart: false
-	restartDisabledDeps := buildRestartDisabledDepsMap(containers)
+	restartDisabledDeps := buildRestartDisabledDepsMap(containers, noComposeDependsOn)
 
 	markedContainers := []string{}
 	changed := true
@@ -519,10 +520,16 @@ func UpdateImplicitRestart(allContainers, containers []types.Container) {
 //
 // Parameters:
 //   - containers: List of containers to analyze.
+//   - noComposeDependsOn: If true, skip processing Docker Compose depends_on labels.
 //
 // Returns:
 //   - map[string]map[string]struct{}: Map of container name to set of dependency names that have restart disabled.
-func buildRestartDisabledDepsMap(containers []types.Container) map[string]map[string]struct{} {
+func buildRestartDisabledDepsMap(containers []types.Container, noComposeDependsOn bool) map[string]map[string]struct{} {
+	// If Compose depends_on is disabled, return an empty map so all dependencies trigger implicit restarts
+	if noComposeDependsOn {
+		return make(map[string]map[string]struct{})
+	}
+
 	result := make(map[string]map[string]struct{}, len(containers))
 
 	for _, c := range containers {

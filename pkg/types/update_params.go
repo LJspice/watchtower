@@ -22,4 +22,5 @@ type UpdateParams struct {
 	RunOnce            bool          // Run once mode if true.
 	SkipSelfUpdate     bool          // Skip Watchtower self-update if true.
 	CurrentContainerID ContainerID   // ID of the current container being updated.
+	NoComposeDependsOn bool          // Disable Docker Compose depends_on support if true.
 }
