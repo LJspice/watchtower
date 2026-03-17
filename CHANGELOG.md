@@ -8,6 +8,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Chores
+
+- Update nicholas-fedor/govulncheck-action digest to b438bbb by @renovate[bot] in [#1425](https://github.com/nicholas-fedor/watchtower/pull/1425)
+
+## [1.14.4] - 2026-03-17
+
 ### Changed
 
 - Document regex pattern matching support by @nicholas-fedor in [#1404](https://github.com/nicholas-fedor/watchtower/pull/1404)
@@ -2774,7 +2780,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Compare Releases
 
-- [unreleased](https://github.com/nicholas-fedor/watchtower/compare/v1.14.3...HEAD)
+- [unreleased](https://github.com/nicholas-fedor/watchtower/compare/v1.14.4...HEAD)
+- [1.14.4](https://github.com/nicholas-fedor/watchtower/compare/v1.14.3...v1.14.4)
 - [1.14.3](https://github.com/nicholas-fedor/watchtower/compare/v1.14.2...v1.14.3)
 - [1.14.2](https://github.com/nicholas-fedor/watchtower/compare/v1.14.1...v1.14.2)
 - [1.14.1](https://github.com/nicholas-fedor/watchtower/compare/v1.14.0...v1.14.1)
